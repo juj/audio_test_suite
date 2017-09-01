@@ -92,7 +92,7 @@ cinematic_intro_loop_outro_44100hz_1411kbs_stereo_int16.wav: Converted from cine
     source.loopEnd = loopEndTime;
     source.start(0);
     reportMemoryUsage(buffer);
-    document.getElementById('result').innerHTML += '<div>You should hear the music first start with an intro, and loop seamlessly in the middle ' + loopTimes + ' times, and then finish with an outro.</div>';
+    document.getElementById('result').innerHTML += '<div>You should hear the music first start with an intro, and loop seamlessly in the middlle 3-4 times, and then finish with an outro.</div>';
     setupLooping(() => { source.loop = false; });
     stopPreviousSource = () => { ++clipId; clearReport(); source.stop(); source.disconnect(); }
   }
