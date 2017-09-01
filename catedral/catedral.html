@@ -1,0 +1,149 @@
+<html><meta charset="UTF-8">
+<body>
+<p>This page tests the ability to adjust pitch of a music clip down to cue a "time slowdown" or a "bullet time" effect, used for example in popular games like <a href="https://www.youtube.com/watch?v=4fpHZXaF4Kc">Max Payne</a> and <a href="https://www.youtube.com/watch?v=R1PcV66uUxs">Braid</a>. In the following files, the music should play back at a normal rate for a few seconds, then shift down to a low pitch for a few seconds, and then adjust back.
+<pre>
+catedral_44100hz_256kbs_stereo.mp3: Downloaded from https://www.dl-sounds.com/royalty-free/, license: https://www.dl-sounds.com/license/</pre>
+<p>Play uncompressed (Web Audio + AudioBufferSourceNode + decodeAudioData() to AudioBuffer):
+<div id='uncompressed'></div>
+<p>Play compressed (&lt;audio&gt; element playing a Blob embedded as MediaElementAudioSource to Web Audio graph):
+<div id='compressed'></div>
+<p>Current memory usage: <span id='memory'>0</span> bytes.
+<div id='result'></div>
+
+<script type="text/javascript">
+  function download(url, responseType) {
+    currentUrl = url;
+    return new Promise((resolve, reject) => {
+      var request = new XMLHttpRequest();
+      request.open('GET', url, true); 
+      request.responseType = responseType;
+      request.onload = () => { resolve(request.response) };
+      request.send();
+    });
+  }
+
+  var context = new AudioContext();
+  var stopPreviousSource = () => {};
+  var uncompressTimeStart = 0;
+  var clipId = 0;
+  var currentUrl = '';
+
+  function expectedSamplingRateOfCurrentClip() {
+    return parseInt(currentUrl.match('([0-9]+)hz')[1]);
+  }
+
+  function uncompress(audio) {
+    return new Promise((resolve, reject) => {
+      uncompressTimeStart = performance.now();
+      context.decodeAudioData(audio, (uncompressed) => { 
+        var timeTakenToDecode = performance.now() - uncompressTimeStart;
+        if (timeTakenToDecode > 200) document.getElementById('result').innerHTML += '<div style="color:red">This method for playing back audio requires a lot of CPU processing power (' + timeTakenToDecode.toFixed(2) + ' msecs) to decode the file.';
+        if (uncompressed.sampleRate != expectedSamplingRateOfCurrentClip()) {
+          document.getElementById('result').innerHTML += '<div style="color:red;">This method of playing back audio is not good, because the sampling rate of the input file was not preserved. Expected: ' + expectedSamplingRateOfCurrentClip() + 'Hz, got ' + uncompressed.sampleRate + 'Hz.</div>'
+        }
+        resolve(uncompressed);
+      });
+    });
+  }
+
+  function size(obj) {
+    if (obj instanceof AudioBuffer) return obj.length * obj.numberOfChannels * 4;
+    else return obj.byteLength || obj.size;
+  }
+
+  var sizeOnDisk = 0;
+  function reportDiskSizeUsage(id, data) { sizeOnDisk = size(data); document.getElementById(id).innerHTML = 'Size on disk: ' + size(data) + ' bytes'; }
+  function reportMemoryUsage(data) {
+    document.getElementById('memory').innerHTML = size(data);
+    document.getElementById('memory').style.color = (size(data) > sizeOnDisk) ? 'red' : 'green';
+    if (size(data) > sizeOnDisk) document.getElementById('result').innerHTML += '<div style="color:red">This method for playing back audio is not reasonable, since it consumes ' + (size(data) - sizeOnDisk) + ' bytes of extra memory (' + (size(data)/sizeOnDisk).toFixed(2) +'x) compared to the actual size of the audio clip on disk.</div>';
+    else document.getElementById('result').innerHTML += '<div style="color:green">This method for playing back audio is good memory-wise, since memory usage is the same as the size on disk.</div>';
+  }
+  function clearReport() { sizeOnDisk = 0; document.getElementById('memory').innerHTML = '0'; document.getElementById('result').innerHTML = ''; delete document.getElementById('result').style.color; }
+
+  function cosInterp(x0, y0, x1, y1, x) {
+    var t = (1 - Math.cos((x-x0)/(x1-x0)*Math.PI))/2;
+    return y0 * (1-t) + y1 * t;
+  }
+
+  function setupPitchAnimation(source) {
+    var currentClip = clipId;
+    function animatePitch() {
+      if (currentClip != clipId) return;
+      var t = performance.now();
+      t = t % 10000;
+      if (t < 5000) source.playbackRate.value = 1;
+      else if (t < 6000) source.playbackRate.value = cosInterp(5000, 1, 6000, 0.5, t);
+      else if (t < 9500) source.playbackRate.value = 0.5;
+      else source.playbackRate.value = cosInterp(9500, 0.5, 10000, 1, t);
+      console.log('pitch: ' + source.playbackRate.value.toFixed(2));
+    }
+
+    setInterval(animatePitch, 100);
+  }
+
+  function playUncompressed(buffer) {
+    var source = context.createBufferSource();
+    source.connect(context.destination);
+    source.buffer = buffer;
+    source.loop = true;
+    source.start(0);
+    reportMemoryUsage(buffer);
+    document.getElementById('result').innerHTML += '<div>You should hear the music adjust its pitch during playback.</div>';
+    setupPitchAnimation(source);
+    stopPreviousSource = () => { ++clipId; clearReport(); source.stop(); source.disconnect(); }
+  }
+
+  function playCompressed(blob) {
+    var url = URL.createObjectURL(blob);
+    var audio = document.createElement('audio');
+    audio.src = url;
+    reportMemoryUsage(blob);
+    audio.loop = true;
+    // TODO: Currently it is not possible to animate pitch when playing back compressed audio clips
+    document.getElementById('result').innerHTML += '<div style="color:red;">The audio clip should animate its pitch, but when playing back compressed audio, <a href="https://github.com/WebAudio/web-audio-api/issues/938">this is currently not possible</a>.</div>'
+    var source = context.createMediaElementSource(audio);
+    source.connect(context.destination);
+    audio.play();
+    stopPreviousSource = () => { ++clipId; clearReport(); audio.pause(); source.disconnect(); URL.revokeObjectURL(url); }
+  }
+
+  var urls = [
+    'catedral_44100hz_256kbs_stereo.mp3'
+  ];
+
+  function playClipUncompressed(i) {
+    stopPreviousSource();
+    download(urls[i], 'arraybuffer').then((data) => {
+      console.log('Playing ' + urls[i] + ' uncompressed');
+      reportDiskSizeUsage('uncompressed_size_' + i, data);
+      return uncompress(data);
+    }).then((data) => {
+      playUncompressed(data, i > 0);
+    });
+  }
+
+  function playClipCompressed(i) {
+    stopPreviousSource();
+    download(urls[i], 'blob').then((data) => {
+      console.log('Playing ' + urls[i] + ' compressed');
+      reportDiskSizeUsage('compressed_size_' + i, data);
+      return playCompressed(data, i > 0);
+    });
+  }
+
+  var html = '';
+  for(var i in urls) {
+    var url = urls[i];
+    html += "<div><input type=button value='"+url+"' onclick=playClipUncompressed("+i+")> <span id=uncompressed_size_"+i+"></span></div>";
+  }
+  document.getElementById('uncompressed').innerHTML = html;
+  html = '';
+  for(var i in urls) {
+    var url = urls[i];
+    html += "<div><input type=button value='"+url+"' onclick=playClipCompressed("+i+")> <span id=compressed_size_"+i+"></span></div>";
+  }
+  document.getElementById('compressed').innerHTML = html;
+</script>
+</body>
+</html>
