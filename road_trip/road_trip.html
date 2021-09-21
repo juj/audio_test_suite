@@ -1,4 +1,7 @@
 <html><meta charset="UTF-8">
+<head>
+<script src='../common.js'></script>
+</head>
 <body>
 <p>This page tests 2D stereo panning via a 3D spatialized sound source. Files:
 <pre>
@@ -39,7 +42,7 @@ road_trip_96000hz_383kbs_stereo.ogg: Converted from road_trip_44100hz_192kbs_ste
     });
   }
 
-  var context = new AudioContext();
+  var context = new (window.AudioContext || window.webkitAudioContext)();
   var stopPreviousSource = () => {};
   var uncompressTimeStart = 0;
   var clipId = 0;
@@ -172,6 +175,7 @@ road_trip_96000hz_383kbs_stereo.ogg: Converted from road_trip_44100hz_192kbs_ste
   ];
 
   function playClipUncompressed(i) {
+    context.resume();
     stopPreviousSource();
     download(urls[i], 'arraybuffer').then((data) => {
       console.log('Playing ' + urls[i] + ' uncompressed');
@@ -183,6 +187,7 @@ road_trip_96000hz_383kbs_stereo.ogg: Converted from road_trip_44100hz_192kbs_ste
   }
 
   function playClipCompressed(i) {
+    context.resume();
     stopPreviousSource();
     download(urls[i], 'blob').then((data) => {
       console.log('Playing ' + urls[i] + ' compressed');

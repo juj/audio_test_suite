@@ -1,4 +1,7 @@
 <html><meta charset="UTF-8">
+<head>
+<script src='../common.js'></script>
+</head>
 <body>
 <p>This page tests seamlessly looping playback of a low sample rate 16kHz mono music clip. Files:
 <pre>shanghai_action_44100hz_1411kbs_stereo_int16.wav: Downloaded from https://www.dl-sounds.com/royalty-free/, license: https://www.dl-sounds.com/license/
@@ -15,77 +18,6 @@ shanghai_action_16000hz_92kbs_mono.ogg: Converted from shanghai_action_16000hz_7
 <div id='result'></div>
 
 <script type="text/javascript">
-  function download(url, responseType) {
-    currentUrl = url;
-    return new Promise((resolve, reject) => {
-      var request = new XMLHttpRequest();
-      request.open('GET', url, true); 
-      request.responseType = responseType;
-      request.onload = () => { resolve(request.response) };
-      request.send();
-    });
-  }
-
-  var context = new AudioContext();
-  var stopPreviousSource = () => {};
-  var uncompressTimeStart = 0;
-  var currentUrl = '';
-
-  function expectedSamplingRateOfCurrentClip() {
-    return parseInt(currentUrl.match('([0-9]+)hz')[1]);
-  }
-
-  function uncompress(audio) {
-    return new Promise((resolve, reject) => {
-      uncompressTimeStart = performance.now();
-      context.decodeAudioData(audio, (uncompressed) => { 
-        var timeTakenToDecode = performance.now() - uncompressTimeStart;
-        if (timeTakenToDecode > 200) document.getElementById('result').innerHTML += '<div style="color:red">This method for playing back audio requires a lot of CPU processing power (' + timeTakenToDecode.toFixed(2) + ' msecs) to decode the file.';
-        if (uncompressed.sampleRate != expectedSamplingRateOfCurrentClip()) {
-          document.getElementById('result').innerHTML += '<div style="color:red;">This method of playing back audio is not good, because the sampling rate of the input file was not preserved. Expected: ' + expectedSamplingRateOfCurrentClip() + 'Hz, got ' + uncompressed.sampleRate + 'Hz.</div>'
-        }
-        resolve(uncompressed);
-      });
-    });
-  }
-
-  function size(obj) {
-    if (obj instanceof AudioBuffer) return obj.length * obj.numberOfChannels * 4;
-    else return obj.byteLength || obj.size;
-  }
-
-  var sizeOnDisk = 0;
-  function reportDiskSizeUsage(id, data) { sizeOnDisk = size(data); document.getElementById(id).innerHTML = 'Size on disk: ' + size(data) + ' bytes'; }
-  function reportMemoryUsage(data) {
-    document.getElementById('memory').innerHTML = size(data);
-    document.getElementById('memory').style.color = document.getElementById('result').style.color = (size(data) > sizeOnDisk) ? 'red' : 'green';
-    if (size(data) > sizeOnDisk) document.getElementById('result').innerHTML += 'This method for playing back audio is not reasonable, since it consumes ' + (size(data) - sizeOnDisk) + ' bytes of extra memory (' + (size(data)/sizeOnDisk).toFixed(2) +'x) compared to the actual size of the audio clip on disk.';
-    else document.getElementById('result').innerHTML += 'This method for playing back audio is good memory-wise, since memory usage is the same as the size on disk. The audio clip should loop seamlessly.';
-  }
-  function clearReport() { sizeOnDisk = 0; document.getElementById('memory').innerHTML = '0'; document.getElementById('result').innerHTML = ''; delete document.getElementById('result').style.color; }
-
-  function playUncompressed(buffer) {
-    var source = context.createBufferSource();
-    source.connect(context.destination);
-    source.buffer = buffer;
-    source.loop = true;
-    source.start(0);
-    reportMemoryUsage(buffer);
-    stopPreviousSource = () => { clearReport(); source.stop(); source.disconnect(); }
-  }
-
-  function playCompressed(blob) {
-    var url = URL.createObjectURL(blob);
-    var audio = document.createElement('audio');
-    audio.src = url;
-    audio.loop = true;
-    var source = context.createMediaElementSource(audio);
-    source.connect(context.destination);
-    audio.play();
-    reportMemoryUsage(blob);
-    stopPreviousSource = () => { clearReport(); audio.pause(); source.disconnect(); URL.revokeObjectURL(url); }
-  }
-
   var urls = [
     'shanghai_action_44100hz_1411kbs_stereo_int16.wav',
     'shanghai_action_16000hz_256kbs_mono_int16.wav',
@@ -94,23 +26,9 @@ shanghai_action_16000hz_92kbs_mono.ogg: Converted from shanghai_action_16000hz_7
     'shanghai_action_16000hz_50kbs_mono_lame3.99.mp3'
   ];
 
-  function playClipUncompressed(i) {
-    stopPreviousSource();
-    download(urls[i], 'arraybuffer').then((data) => {
-      console.log('Playing ' + urls[i] + ' uncompressed');
-      reportDiskSizeUsage('uncompressed_size_' + i, data);
-      return uncompress(data);
-    }).then(playUncompressed);
-  }
-
-  function playClipCompressed(i) {
-    stopPreviousSource();
-    download(urls[i], 'blob').then((data) => {
-      console.log('Playing ' + urls[i] + ' compressed');
-      reportDiskSizeUsage('compressed_size_' + i, data);
-      return playCompressed(data);
-    });
-  }
+  var options = {
+    loop: true
+  };
 
   var html = '';
   for(var i in urls) {

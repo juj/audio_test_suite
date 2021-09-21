@@ -22,7 +22,7 @@ catedral_44100hz_256kbs_stereo.mp3: Downloaded from https://www.dl-sounds.com/ro
     });
   }
 
-  var context = new AudioContext();
+  var context = new (window.AudioContext || window.webkitAudioContext)();
   var stopPreviousSource = () => {};
   var uncompressTimeStart = 0;
   var clipId = 0;

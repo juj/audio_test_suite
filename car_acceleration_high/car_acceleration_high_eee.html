@@ -3,7 +3,7 @@
 <script type="text/javascript">
   var url = 'car_acceleration_high_44100hz_706kbs_mono_int16.wav';
 
-  var context = new AudioContext();
+  var context = new (window.AudioContext || window.webkitAudioContext)();
   var source = context.createBufferSource();
   source.connect(context.destination);
 

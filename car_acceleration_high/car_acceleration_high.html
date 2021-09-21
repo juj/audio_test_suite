@@ -1,4 +1,7 @@
 <html><meta charset="UTF-8">
+<head>
+<script src='../common.js'></script>
+</head>
 <body>
 <p>This page tests animating pitch while seamlessly looping an audio clip. Files:
 <pre>car_acceleration_high_44100hz_706kbs_mono_int16.wav: Obtained from Unity StandardAssets project: https://www.assetstore.unity3d.com/en/#!/content/32351
@@ -17,55 +20,7 @@ car_acceleration_high_44100hz_110kbs_mono_lame3.99.mp3: Converted from car_accel
 <div id='result'></div>
 
 <script type="text/javascript">
-  function download(url, responseType) {
-    currentUrl = url;
-    return new Promise((resolve, reject) => {
-      var request = new XMLHttpRequest();
-      request.open('GET', url, true); 
-      request.responseType = responseType;
-      request.onload = () => { resolve(request.response) };
-      request.send();
-    });
-  }
-
-  var context = new AudioContext();
-  var stopPreviousSource = () => {};
-  var uncompressTimeStart = 0;
   var clipId = 0;
-  var currentUrl = '';
-
-  function expectedSamplingRateOfCurrentClip() {
-    return parseInt(currentUrl.match('([0-9]+)hz')[1]);
-  }
-
-  function uncompress(audio) {
-    return new Promise((resolve, reject) => {
-      uncompressTimeStart = performance.now();
-      context.decodeAudioData(audio, (uncompressed) => { 
-        var timeTakenToDecode = performance.now() - uncompressTimeStart;
-        if (timeTakenToDecode > 200) document.getElementById('result').innerHTML += '<div style="color:red">This method for playing back audio requires a lot of CPU processing power (' + timeTakenToDecode.toFixed(2) + ' msecs) to decode the file.';
-        if (uncompressed.sampleRate != expectedSamplingRateOfCurrentClip()) {
-          document.getElementById('result').innerHTML += '<div style="color:red;">This method of playing back audio is not good, because the sampling rate of the input file was not preserved. Expected: ' + expectedSamplingRateOfCurrentClip() + 'Hz, got ' + uncompressed.sampleRate + 'Hz.</div>'
-        }
-        resolve(uncompressed);
-      });
-    });
-  }
-
-  function size(obj) {
-    if (obj instanceof AudioBuffer) return obj.length * obj.numberOfChannels * 4;
-    else return obj.byteLength || obj.size;
-  }
-
-  var sizeOnDisk = 0;
-  function reportDiskSizeUsage(id, data) { sizeOnDisk = size(data); document.getElementById(id).innerHTML = 'Size on disk: ' + size(data) + ' bytes'; }
-  function reportMemoryUsage(data) {
-    document.getElementById('memory').innerHTML = size(data);
-    document.getElementById('memory').style.color = document.getElementById('result').style.color = (size(data) > sizeOnDisk*1.1) ? 'red' : 'green';
-    if (size(data) > sizeOnDisk*1.1) document.getElementById('result').innerHTML += 'This method for playing back audio is not reasonable, since it consumes ' + (size(data) - sizeOnDisk) + ' bytes of extra memory (' + (size(data)/sizeOnDisk).toFixed(2) +'x) compared to the actual size of the audio clip on disk.';
-    else document.getElementById('result').innerHTML += 'This method for playing back audio is good memory-wise, since memory usage is the same as the size on disk. The audio clip should loop seamlessly.';
-  }
-  function clearReport() { sizeOnDisk = 0; document.getElementById('memory').innerHTML = '0'; document.getElementById('result').innerHTML = ''; delete document.getElementById('result').style.color; }
 
   var state = 0;
   function setupAnimatePitch(source) {
@@ -84,7 +39,7 @@ car_acceleration_high_44100hz_110kbs_mono_lame3.99.mp3: Converted from car_accel
         if (source.playbackRate.value <= 0.3) {
           source.playbackRate.value = 0.3;
           state = 2;
-          setTimeout(() => { 
+          setTimeout(() => {
               console.log('Stop!');
               source.stop();
             }, 2500);
@@ -133,6 +88,7 @@ car_acceleration_high_44100hz_110kbs_mono_lame3.99.mp3: Converted from car_accel
   ];
 
   function playClipUncompressed(i) {
+    context.resume();
     stopPreviousSource();
     download(urls[i], 'arraybuffer').then((data) => {
       console.log('Playing ' + urls[i] + ' uncompressed');
@@ -142,6 +98,7 @@ car_acceleration_high_44100hz_110kbs_mono_lame3.99.mp3: Converted from car_accel
   }
 
   function playClipCompressed(i) {
+    context.resume();
     stopPreviousSource();
     download(urls[i], 'blob').then((data) => {
       console.log('Playing ' + urls[i] + ' compressed');
