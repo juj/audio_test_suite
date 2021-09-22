@@ -26,7 +26,7 @@ function expectedSamplingRateOfCurrentClip() {
 function uncompress(audio) {
   return new Promise((resolve, reject) => {
     var uncompressTimeStart = performance.now();
-    context.decodeAudioData(audio).then((uncompressed) => {
+    function onDecode(uncompressed) {
       var timeTakenToDecode = performance.now() - uncompressTimeStart;
       if (timeTakenToDecode > 200) reportError('This method for playing back audio requires a lot of CPU processing power (' + timeTakenToDecode.toFixed(2) + ' msecs) to decode the file.');
       if (uncompressed.sampleRate != expectedSamplingRateOfCurrentClip()) {
@@ -34,10 +34,13 @@ function uncompress(audio) {
       }
       console.log('Uncompressed audio clip');
       resolve(uncompressed);
-    }).catch((e) => {
+    }
+    function onError(e) {
       console.error(e);
       reportError('Uncompressing audio failed: ' + e);
-    });
+    }
+    // This is the old form of .decodeAudioData() call. New form returns a Promise, but Safari does not implement the new API.
+    context.decodeAudioData(audio, onDecode, onError);
   });
 }
 
